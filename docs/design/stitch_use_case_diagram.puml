@@ -1,0 +1,8 @@
+@startuml "Stitch Use Cases"
+left to right direction
+
+:User:
+
+:User: --> (Stitch multiple images together)
+
+@enduml

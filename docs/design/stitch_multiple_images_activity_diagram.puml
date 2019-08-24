@@ -1,0 +1,29 @@
+@startuml "Stitch multiple PNG images together"
+
+start
+
+repeat
+    :Read input image;
+    :Link input image dimensions\nto output image coordinates;
+    note left
+        Coordinates and dimensions
+        are defined in pixels.
+    end note
+repeat while (more input images?) is (yes)
+
+:Determine output image dimensions;
+note left
+    Determining the output image
+    dimensions requires knowledge
+    of all the input images'
+    coordinates and dimensions.
+end note
+:Create new output image;
+
+repeat
+    :Write input image data at its coordinates;
+repeat while (more images?) is (yes)
+
+stop
+
+@enduml

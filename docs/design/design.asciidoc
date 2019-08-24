@@ -1,0 +1,22 @@
+
+== Use Cases
+
+There is only a single use case for using _stitch_.
+Its singular purpose is to take in multiple images and output a single image.
+
+.Use Cases
+[plantuml,align="center"]
+----
+include::stitch_use_case_diagram.puml[]
+----
+
+=== Stitching multiple images together
+
+The main activities needed to implement _stitch_ is to determine the output file dimensions followed by writing the input images' data at the expected coordinates.
+Obviously the concept of coordinates does not exist for most, if not all, image formats, so they need to be converted to buffer offsets.
+
+.Stitching multiple images together
+[plantuml,align="center"]
+----
+include::stitch_multiple_images_activity_diagram.puml[]
+----
