@@ -1,9 +1,7 @@
 extern crate clap;
 use clap::{App, Arg, ArgMatches, values_t};
-use std::fs::File;
 use std::path::Path;
-use std::io::BufWriter;
-use image::GenericImageView;
+use std::collections::{HashMap, VecDeque};
 
 type Result<T> = std::result::Result<T, StitchError>;
 
@@ -40,6 +38,15 @@ impl From<image::ImageError> for StitchError {
     fn from(error: image::ImageError) -> Self {
         StitchError {
             kind: String::from("image"),
+            message: error.to_string(),
+        }
+    }
+}
+
+impl From<std::io::Error> for StitchError {
+    fn from(error: std::io::Error) -> Self {
+        StitchError {
+            kind: String::from("io"),
             message: error.to_string(),
         }
     }
@@ -154,13 +161,13 @@ mod tests {
         let y_coords: Vec<u64> = values_t!(matches.values_of("y"), u64).unwrap();
         let coords: Vec<(_, _)> = x_coords.into_iter().zip(y_coords.into_iter()).collect();
         let dimensions = vec![(256u64, 256u64), (256u64, 256u64)];
-        let (width, height) = calc_image_size(dimensions, coords);
+        let (width, height) = calc_image_size(&dimensions, &coords);
         assert_eq!(512, width);
         assert_eq!(256, height);
     }
 }
 
-fn calc_image_size(dimensions: Vec<(u64, u64)>, coords: Vec<(u64, u64)>) -> (u64, u64) {
+fn calc_image_size(dimensions: &Vec<(u64, u64)>, coords: &Vec<(u64, u64)>) -> (u64, u64) {
     let mut max_width = 0;
     let mut max_height = 0;
     for (i, dimension) in dimensions.iter().enumerate() {
@@ -214,24 +221,40 @@ fn app_args<'a>() -> App<'a, 'a> {
 fn main() -> Result<()> {
     let matches = app_args().get_matches();
     let matches = validate_args(&matches)?;
-    // let output_path = Path::new(r"output.png");
-    // let output_file = File::create(output_path).unwrap();
-    // let ref mut w = BufWriter::new(output_file);
-
+    let output_path = Path::new(r"output.png");
+    let mut image_map = HashMap::new();
+    let mut coords_queue = VecDeque::new();
     let x_coords: Vec<u64> = values_t!(matches.values_of("x"), u64).unwrap();
     let y_coords: Vec<u64> = values_t!(matches.values_of("y"), u64).unwrap();
     let coords: Vec<(_, _)> = x_coords.into_iter().zip(y_coords.into_iter()).collect();
     let mut dimensions: Vec<(u64, u64)> = Vec::new();
-    let images: Vec<String> = values_t!(matches.values_of("IMAGE"), String).unwrap();
-    for image in matches.values_of("IMAGE").expect("No images specified.") {
+
+    for (i, image_path) in matches.values_of("IMAGE").unwrap().enumerate() {
         // We can safely unwrap here since validate_args checks that this file exists for us.
-        let img = image::open(image).unwrap();
+        let img = image::open(image_path).unwrap().to_rgba();
         let img_dimensions = img.dimensions();
         dimensions.push((img_dimensions.0 as u64, img_dimensions.1 as u64));
+        image_map.insert(image_path, img);
+        coords_queue.push_back((coords[i].0, coords[i].1));
     }
 
-    let (width, height) = calc_image_size(dimensions, coords);
-    println!("output images dimensions: {} x {}", width, height);
+    let (width, height) = calc_image_size(&dimensions, &coords);
+    let mut output_buf: image::RgbaImage = image::ImageBuffer::new(width as u32, height as u32);
+
+    for image_path in matches.values_of("IMAGE").expect("No images specified.") {
+        let img = &image_map[image_path];
+        let coords = coords_queue.pop_front().unwrap();
+        println!("{:?} at {:?}", img.dimensions(), coords);
+        for x in 0..img.width() {
+            for y in 0..img.height() {
+                output_buf.put_pixel(
+                    (coords.0 + x as u64) as u32,
+                    (coords.1 + y as u64) as u32,
+                    *img.get_pixel(x, y));
+            }
+        }
+    }
+    output_buf.save(output_path)?;
 
     Ok(())
 }
