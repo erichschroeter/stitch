@@ -36,6 +36,15 @@ impl From<clap::Error> for StitchError {
     }
 }
 
+impl From<image::ImageError> for StitchError {
+    fn from(error: image::ImageError) -> Self {
+        StitchError {
+            kind: String::from("image"),
+            message: error.to_string(),
+        }
+    }
+}
+
 fn validate_args<'a>(matches: &'a ArgMatches) -> Result<&'a ArgMatches<'a>> {
     let image_count = matches.occurrences_of("IMAGE");
     if image_count != matches.occurrences_of("x") {
@@ -102,6 +111,38 @@ mod tests {
         assert_eq!("command-line", error.kind);
         assert_eq!("-y specified 1 times, expected 2", error.message);
     }
+
+    #[test]
+    fn calc_image_size_example() {
+        let args_vec = vec!["stitch", "-x", "0", "-y", "0", "one.png", "-x", "256", "-y", "0", "two.png"];
+        let matches = app_args().get_matches_from_safe(args_vec).unwrap();
+        let x_coords: Vec<u64> = values_t!(matches.values_of("x"), u64).unwrap();
+        let y_coords: Vec<u64> = values_t!(matches.values_of("y"), u64).unwrap();
+        let coords: Vec<(_, _)> = x_coords.into_iter().zip(y_coords.into_iter()).collect();
+        let dimensions = vec![(256u64, 256u64), (256u64, 256u64)];
+        let (width, height) = calc_image_size(dimensions, coords);
+        assert_eq!(512, width);
+        assert_eq!(256, height);
+    }
+}
+
+fn calc_image_size(dimensions: Vec<(u64, u64)>, coords: Vec<(u64, u64)>) -> (u64, u64) {
+    let mut max_width = 0;
+    let mut max_height = 0;
+    for (i, dimension) in dimensions.iter().enumerate() {
+        let width = dimension.0;
+        let height = dimension.1;
+        let projected_width = coords[i].0 + width;
+        let projected_height = coords[i].1 + height;
+
+        if projected_width > max_width {
+            max_width = projected_width;
+        }
+        if projected_height > max_height {
+            max_height = projected_height;
+        }
+    }
+    (max_width, max_height)
 }
 
 fn app_args<'a>() -> App<'a, 'a> {
