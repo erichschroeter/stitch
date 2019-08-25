@@ -1,5 +1,5 @@
 extern crate clap;
-use clap::{App, Arg, ArgMatches};
+use clap::{App, Arg, ArgMatches, values_t};
 use std::fs::File;
 use std::path::Path;
 use std::io::BufWriter;
@@ -27,6 +27,15 @@ impl std::error::Error for StitchError {
     }
 }
 
+impl From<clap::Error> for StitchError {
+    fn from(error: clap::Error) -> Self {
+        StitchError {
+            kind: String::from("clap"),
+            message: error.to_string(),
+        }
+    }
+}
+
 fn validate_args<'a>(matches: &'a ArgMatches) -> Result<&'a ArgMatches<'a>> {
     let image_count = matches.occurrences_of("IMAGE");
     if image_count != matches.occurrences_of("x") {
@@ -35,18 +44,42 @@ fn validate_args<'a>(matches: &'a ArgMatches) -> Result<&'a ArgMatches<'a>> {
             message: format!("-x specified {} times, expected {}", matches.occurrences_of("x"), image_count),
         })
     }
+    values_t!(matches.values_of("x"), u64)?;
     if image_count != matches.occurrences_of("y") {
         return Err(StitchError {
             kind: String::from("command-line"),
             message: format!("-y specified {} times, expected {}", matches.occurrences_of("y"), image_count),
         })
     }
+    values_t!(matches.values_of("y"), u64)?;
     Ok(matches)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn x_coordinate_must_be_integer() {
+        let args_vec = vec!["stitch", "-x", "e", "-y", "0", "one.png"];
+        let matches = app_args().get_matches_from_safe(args_vec).unwrap();
+        let validation_result = validate_args(&matches);
+        assert!(validation_result.is_err());
+        let error = validation_result.err().unwrap();
+        assert_eq!("clap", error.kind);
+        assert_eq!("error: Invalid value: The argument 'e' isn't a valid value\n", error.message);
+    }
+
+    #[test]
+    fn y_coordinate_must_be_integer() {
+        let args_vec = vec!["stitch", "-x", "0", "-y", "u", "one.png"];
+        let matches = app_args().get_matches_from_safe(args_vec).unwrap();
+        let validation_result = validate_args(&matches);
+        assert!(validation_result.is_err());
+        let error = validation_result.err().unwrap();
+        assert_eq!("clap", error.kind);
+        assert_eq!("error: Invalid value: The argument 'u' isn't a valid value\n", error.message);
+    }
 
     #[test]
     fn x_coordinate_for_every_image() {
