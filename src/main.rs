@@ -214,25 +214,24 @@ fn app_args<'a>() -> App<'a, 'a> {
 fn main() -> Result<()> {
     let matches = app_args().get_matches();
     let matches = validate_args(&matches)?;
-    let output_path = Path::new(r"output.png");
-    let output_file = File::create(output_path).unwrap();
-    let ref mut w = BufWriter::new(output_file);
+    // let output_path = Path::new(r"output.png");
+    // let output_file = File::create(output_path).unwrap();
+    // let ref mut w = BufWriter::new(output_file);
 
-    let mut max_width = 0;
-    let mut max_height = 0;
-
+    let x_coords: Vec<u64> = values_t!(matches.values_of("x"), u64).unwrap();
+    let y_coords: Vec<u64> = values_t!(matches.values_of("y"), u64).unwrap();
+    let coords: Vec<(_, _)> = x_coords.into_iter().zip(y_coords.into_iter()).collect();
+    let mut dimensions: Vec<(u64, u64)> = Vec::new();
+    let images: Vec<String> = values_t!(matches.values_of("IMAGE"), String).unwrap();
     for image in matches.values_of("IMAGE").expect("No images specified.") {
-        println!("{}", image);
+        // We can safely unwrap here since validate_args checks that this file exists for us.
         let img = image::open(image).unwrap();
-        let (width, height) = img.dimensions();
-        println!("\t{:?}", img.dimensions());
-
-        if width > max_width {
-            max_width = width;
-        }
-        if height > max_height {
-            max_height = height;
-        }
+        let img_dimensions = img.dimensions();
+        dimensions.push((img_dimensions.0 as u64, img_dimensions.1 as u64));
     }
+
+    let (width, height) = calc_image_size(dimensions, coords);
+    println!("output images dimensions: {} x {}", width, height);
+
     Ok(())
 }
