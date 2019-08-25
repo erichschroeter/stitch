@@ -61,6 +61,16 @@ fn validate_args<'a>(matches: &'a ArgMatches) -> Result<&'a ArgMatches<'a>> {
         })
     }
     values_t!(matches.values_of("y"), u64)?;
+    for image_path in matches.values_of("IMAGE").expect("No images specified.") {
+        if Path::new(image_path).exists() {
+            image::open(image_path)?;
+        } else {
+            return Err(StitchError {
+                kind: String::from("command-line"),
+                message: format!("file does not exist: '{}'", image_path),
+            })
+        }
+    }
     Ok(matches)
 }
 
@@ -110,6 +120,30 @@ mod tests {
         let error = validation_result.err().unwrap();
         assert_eq!("command-line", error.kind);
         assert_eq!("-y specified 1 times, expected 2", error.message);
+    }
+
+    #[test]
+    fn validate_args_errors_if_image_does_not_exist() {
+        let args_vec = vec!["stitch", "-x", "0", "-y", "0", "one.png"];
+        let matches = app_args().get_matches_from_safe(args_vec).unwrap();
+        let validation_result = validate_args(&matches);
+        assert!(validation_result.is_err());
+        let error = validation_result.err().unwrap();
+        assert_eq!("command-line", error.kind);
+        assert_eq!("file does not exist: 'one.png'", error.message);
+    }
+
+    #[test]
+    fn validate_args_errors_if_image_format_is_not_supported() {
+        let mut project_path = std::env::current_dir().expect("current working dir");
+        project_path.push("README.md");
+        let args_vec = vec!["stitch", "-x", "0", "-y", "0", project_path.to_str().unwrap()];
+        let matches = app_args().get_matches_from_safe(args_vec).unwrap();
+        let validation_result = validate_args(&matches);
+        assert!(validation_result.is_err());
+        let error = validation_result.err().unwrap();
+        assert_eq!("image", error.kind);
+        assert_eq!(r#"The Decoder does not support the image format `Image format image/"md" is not supported.`"#, error.message);
     }
 
     #[test]
