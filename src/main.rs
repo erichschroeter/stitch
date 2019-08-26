@@ -256,7 +256,6 @@ fn main() -> Result<()> {
     for image_path in matches.values_of("IMAGE").expect("No images specified.") {
         let img = &image_map[image_path];
         let coords = coords_queue.pop_front().unwrap();
-        println!("{:?} at {:?}", img.dimensions(), coords);
         for x in 0..img.width() {
             for y in 0..img.height() {
                 output_buf.put_pixel(
