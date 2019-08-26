@@ -186,6 +186,17 @@ fn calc_image_size(dimensions: &Vec<(u64, u64)>, coords: &Vec<(u64, u64)>) -> (u
     (max_width, max_height)
 }
 
+fn build_output_name(args: &ArgMatches) -> String {
+    let mut filename = String::new();
+    for (i, input_path) in args.values_of("IMAGE").unwrap().enumerate() {
+        if i != 0 {
+            filename.push_str("-and-");
+        }
+        filename.push_str(input_path);
+    }
+    filename
+}
+
 fn app_args<'a>() -> App<'a, 'a> {
     App::new("stitch")
         .version("1.0")
@@ -221,7 +232,8 @@ fn app_args<'a>() -> App<'a, 'a> {
 fn main() -> Result<()> {
     let matches = app_args().get_matches();
     let matches = validate_args(&matches)?;
-    let output_path = Path::new(r"output.png");
+    let default_output = build_output_name(&matches);
+    let output_path = Path::new(matches.value_of("output").unwrap_or(&default_output));
     let mut image_map = HashMap::new();
     let mut coords_queue = VecDeque::new();
     let x_coords: Vec<u64> = values_t!(matches.values_of("x"), u64).unwrap();
